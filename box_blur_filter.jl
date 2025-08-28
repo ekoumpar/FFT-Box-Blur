@@ -1,5 +1,8 @@
-using BenchmarkTools
+module BoxBlur
+
 using FFTW
+
+export blur_filter_conv, blur_filter_conv_FFT
 
 function blur_filter_conv(image::AbstractArray, kernel_size::Int)
 
@@ -212,59 +215,4 @@ function blur_filter_conv_FFT(image::AbstractArray, kernel_size::Int)
         error("Image dimensions not supported")
     end
 end
-
-
-function blur()
-
-    """
-    Contains different images sizes to test blur_filter_conv
-    and blur_filter_conv_FFT blur filters.
-    """
-
-    # Available sample images
-
-    # Small images for debbugging
-    img1 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    
-    img2 = [1 2 3 4 5;
-                    6 7 8 9 10;
-                    11 12 13 14 15;
-                    16 17 18 19 20;
-                    21 22 23 24 25]
-    
-    img3 = reshape(1:27, (3, 3, 3))
-    
-    # Big images to test the speed
-    img4 = rand(512, 512) 
-    
-    # Set image and size of kernel
-    image = img2
-    kernel_size = 3
-
-    # Speed test 
-    print("Blur filter (convolution) time:")
-    @btime blur_filter_conv($image, $kernel_size) 
-    print("Blur filter (FFT convolution) time:")
-    @btime blur_filter_conv_FFT($image, $kernel_size)
-
-    # Print the blurred image with convolution
-    
-    println("Original Image:")
-    println(image)
-    println("\nTesting blur filter (convolution)...")
-    blurred_conv = blur_filter_conv(image, kernel_size)
-    println(size(blurred_conv))
-    println("Blurred Image (Convolution):")
-    println(blurred_conv)
-    
-    
-    # Print the blurred image with FFT convolution
-    
-    println("\nTesting blur_filter_conv_FFT...")
-    blurred_fft = blur_filter_conv_FFT(image, kernel_size)
-    println(size(blurred_fft))
-    println("Blurred Image (FFT):")
-    println(blurred_fft)
-    
-    
 end
