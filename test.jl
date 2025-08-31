@@ -11,7 +11,9 @@ img1 = rand(image_size)                         #1D
 img2 = rand(image_size, image_size)             #2D
 img3 = rand(image_size, image_size, image_size) #3D
 
-image = img3
+test_image = img1
+
+image = test_image
 
 # Speed test 
 print("Blur filter (convolution) time:")
@@ -19,8 +21,12 @@ print("Blur filter (convolution) time:")
 print("Blur filter (FFT convolution) time:")
 @btime blur_filter_conv_FFT($image, $kernel_size)
 
-# Print the blurred image with convolution
+
 """
+image = test_image
+
+# Print the blurred image with convolution
+
 println("Original Image:")
 println(image)
 println("\nTesting blur filter (convolution)...")
