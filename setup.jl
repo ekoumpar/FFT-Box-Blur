@@ -3,7 +3,10 @@ using Pkg
 packages = [
     "BenchmarkTools",
     "FFTW",
-    "Test"
+    "Test", 
+    "DSP",
+    "CUDA",
+    "NNlibCUDA"
 ]
 
 for p in packages
