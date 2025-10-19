@@ -1,35 +1,119 @@
 # FFT-Box-Blur
 
-This project implements a **box blur filter** using both **direct convolution** and **FFT-based convolution**, supporting 1D, 2D, and 3D data.  
+This project implements a **box blur filter** using **direct convolution** with a prefix sum array and **FFT-based convolution**. It supports 1D, 2D and 3D images. 
+
+## Convolution via Prefix Sum Array
+
+To efficiently compute a box blur, we use a **prefix sum array** (integral image) to calculate the sum of any kernel region in **constant time**.  
+This method is applicable to images of **any dimension** (1D, 2D, or 3D).
+For a 2D image, the prefix sum array $S$ is computed in $O(N^2)$ as:
+
+$$
+S(x, y) = I(x, y) + S(x-1, y) + S(x, y-1) - S(x-1, y-1)
+$$
+
+The sum of a rectangular region from $(x_1, y_1)$ to $(x_2, y_2)$ is:
+
+$$
+\text{Sum} = S(x_2, y_2) - S(x_1-1, y_2) - S(x_2, y_1-1) + S(x_1-1, y_1-1)
+$$
+
+For each pixel $(i, j)$, the kernel region is defined by:
+
+$$
+(x_1, y_1) = (i - \text{pad}, j - \text{pad}), \quad
+(x_2, y_2) = (i + \text{pad}, j + \text{pad})
+$$
+
+where $\text{pad} = \lfloor k/2 \rfloor$.  
+This allows computing the sum of the kernel in **$O(1)$ per pixel**, giving a total convolution complexity of **$O(N^2)$**.
+
+
+**Total complexity:** $O(N^2)$
+
+## Convolution via Fast Fourier Transform (FFT)
+
+Using the **convolution theorem**, a convolution in the spatial domain equals multiplication in the frequency domain.  
+Both the image and kernel are padded in every dimension to  $N = \text{size(image)} + \text{size(kernel)} - 1$.
+
+The kernel is placed at the top-left (and front for 3D) of the padded array to ensure **linear convolution**.
+Real FFTs can be roughly twice as fast as complex ones, due to symmetry.
+
+**Steps:**
+1. Compute real FFTs of the padded image and kernel.  
+2. Multiply the FFTs element-wise.  
+3. Compute the inverse real FFT of the product.  
+4. Crop the center to match the original image size.  
+
+**Total complexity:** $O(N^2 log N)$
 
 ---
+## Implementation
 
-## Blur Filter Performance 
-The performance was tested in an image of size 512.
-- **CPU:** 11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz
-- **RAM:** 8 GB
+The above methods were implemented using built-in Julia functions such as `cumsum`, `rfft`, and `irfft` as well as their GPU implemented versions. Performance was improved through various optimization techniques, including **preallocation**, **real FFTs**, **FFT planning**, and **optimized loops**. Additionally, **GPU versions** of both methods were developed to further accelerate computation through parallel execution.
 
+Available functions:
+- `prefix_sum_conv` and `prefix_sum_conv_gpu` in `BoxBlurConvolution` module
+- `fft_conv` and `fft_conv_gpu` in `BoxBlurFFT` module
+  
+## Installation
 
-| Dim    | Kernel Size | Convolution Time | FFT Convolution Time |
-| ------ | ----------- | ---------------- | -------------------- |
-| **1D** | 3           | 1.500 μs         | 7.350 μs             |
-|        | 19          | 7.275 μs         | 13.400 μs            |
-|        | 21          | 8.200 μs         | 5.750 μs             |
-| **2D** | 5           | 6.545 ms         | 10.493 ms            |
-|        | 7           | 11.823 ms        | 9.117 ms             |
-|        | 9           | 18.997 ms        | 2.436 ms             |
-|        | 11          | 28.956 ms        | 7.733 ms             |
-| **3D** | 3           | 6.647 s          | 21.824 s             |
-|        | 5           | 19.982 s         | 10.174 s             |
-|        | 7           | 52.759 s         | 9.581 s              |
-|        | 9           | 99.539 s         | 3.931 s              |
+To download the available modules, clone the repository using:
 
----
+```bash
+git clone <https://github.com/ekoumpar/FFT-Box-Blur>
+```
+## Execution instructions 
 
-### Observations
+To run the code in the Julia REPL, execute the following commands:
 
-- **1D:** FFT convolution becomes faster after kernel size ≈ **21**.  
-- **2D:** FFT convolution becomes faster after kernel size ≈ **9**.  
-- **3D:** FFT convolution becomes faster already after kernel size ≈ **5**, and the performance gain grows dramatically with larger kernels.  
+```julia
+include("setup.jl")
+include("load_filters.jl")
+include("test.jl")
+```
+- `setup.jl` — Installs the required library packages (run this once).
 
----
+- `load_filters.jl` — Loads the implemented modules and filter functions.
+
+- `test.jl` — Contains tests that verify correctness of the implementations and benchmarks their performance.
+
+For benchmarking, you can also run:
+
+```julia
+include("benchmark.jl")
+```
+This script records execution times for performance evaluation.
+
+## Performance
+
+The performance was evaluated on the **Ampere cluster** of the Aristotle HPC unit:
+
+- **CPU:** AMD EPYC 7742  
+- **RAM:** 1024 GB  
+- **GPU:** NVIDIA A100  
+
+Both CPU implementations of the prefix sum and FFT convolution were optimized to **minimize additional memory allocations**.
+
+We measured the **initialization time** (prefix sum computation and FFT plan preparation) along with the **convolution time** on:  
+
+- 2D images: 480×560 and 1024×1024  
+- 3D image: 420×480×560
+
+## 2D Images
+
+### Convolution time
+<img width="857" height="470" alt="convolution_time_480x560" src="https://github.com/user-attachments/assets/0c3f367d-b707-4cf3-ad74-27a66c10588c" />
+<img width="857" height="470" alt="convolution_time_1024x1024" src="https://github.com/user-attachments/assets/883d9502-fad2-44f0-917f-b6c3d85557b0" />
+
+### Preparation time
+<img width="857" height="470" alt="prepare_time_2D" src="https://github.com/user-attachments/assets/b1952322-f109-4afb-a855-c6a1f1a9b066" />
+
+## 3D Images
+
+### Convolution time
+<img width="849" height="470" alt="convolution_time_3D" src="https://github.com/user-attachments/assets/906f3276-56c2-449f-9bfb-924f8f74330c" />
+
+### Preparation time
+<img width="857" height="470" alt="prepare_time_3D" src="https://github.com/user-attachments/assets/e4170d87-95e7-4fbe-a61c-b93ff011597c" />
+
