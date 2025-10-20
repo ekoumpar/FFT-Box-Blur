@@ -45,6 +45,8 @@ function fft_conv(image::AbstractArray, kernel_size::Int; fft_plans=nothing)
     
     if isnothing(fft_plans) 
         fft_plans = prepare_fft(R_space.M, R_space.K, kernel_size)
+        image_index = ntuple(d -> 1:size(image, d), ndims(image))
+        R_space.M[image_index...] .= Float32.(image)
     end
     
     blur_filter_fft(sz, kernel_size, R_space, fft_plans)
@@ -69,7 +71,7 @@ function fft_conv_bench(image::AbstractArray, kernel_size::Int)
     t_init_fft   = @belapsed prepare_fft($R_space.M, $R_space.K, $kernel_size)
     fft_plans    = prepare_fft(R_space.M, R_space.K, kernel_size)
     t_conv_fft   = @belapsed blur_filter_fft($sz, $kernel_size, $R_space, $fft_plans)
-    mem_fft      = @ballocated blur_filter_fft($sz, $kernel_size, $R_space, $fft_plans)
+    mem_fft     = @ballocated blur_filter_fft($sz, $kernel_size, $R_space, $fft_plans)
 
     t_fft = @belapsed begin
         # Compute FFT-based convolution (full convolution)
@@ -126,7 +128,7 @@ end
 """
 function prepare_fft(M::AbstractArray, K::AbstractArray, kernel_size::Int)
 
-    F  = plan_rfft(similar(M), flags=FFTW.MEASURE) # FFT along first dimension
+    F  = plan_rfft(M, flags=FFTW.MEASURE) # FFT along first dimension
     Fkernel = F * K
     Fi = plan_irfft(similar(Fkernel), size(M, 1), flags=FFTW.MEASURE) # Inverse FFT along first dimension
     
@@ -178,6 +180,13 @@ end
 
 # GPU versions 
 
+struct FFTPlans_gpu
+    F::CUFFT.Plan    
+    Fi::CUFFT.Plan
+    Fkernel::CuArray
+end
+
+
 struct ResultsFFT_gpu
     M::CuArray
     K::CuArray
@@ -194,18 +203,21 @@ end
     Returns the blurred image.
 
 """
-function fft_conv_gpu(image::AbstractArray, kernel_size::Int)
+function fft_conv_gpu(image::AbstractArray, kernel_size::Int; fft_plans=nothing)
 
     image_gpu = CuArray(image)
     sz = size(image_gpu)
     
     R_space = fft_init_gpu(image_gpu, kernel_size)
-    blur_filter_fft_gpu(sz, kernel_size, R_space)
+    if isnothing(fft_plans) 
+        fft_plans = prepare_fft_gpu(R_space.M, R_space.K, kernel_size)
+    end
+    blur_filter_fft_gpu(sz, kernel_size, R_space, fft_plans)
     CUDA.synchronize()
 
     R_cpu = Array(R_space.R)
 
-    return R_cpu
+    return R_cpu, fft_plans
 end
 
 """
@@ -222,11 +234,15 @@ function fft_conv_gpu_bench(image::AbstractArray, kernel_size::Int)
     sz = size(image_gpu)
     
     R_space = fft_init_gpu(image_gpu, kernel_size)
+    t_init_fft   = @belapsed begin
+        CUDA.@sync prepare_fft_gpu($R_space.M, $R_space.K, $kernel_size)
+    end
+    fft_plans    = prepare_fft_gpu(R_space.M, R_space.K, kernel_size)
     t_conv_fft = @belapsed begin
-        CUDA.@sync blur_filter_fft_gpu($sz, $kernel_size, $R_space)
+        CUDA.@sync blur_filter_fft_gpu($sz, $kernel_size, $R_space, $fft_plans)
     end
 
-    return t_conv_fft
+    return t_init_fft, t_conv_fft
 end
 
 """
@@ -261,6 +277,14 @@ function fft_init_gpu(image::CuArray, kernel_size::Int)
 
 end
 
+function prepare_fft_gpu(M::CuArray, K::CuArray, kernel_size::Int)
+
+    F  = CUFFT.plan_rfft(M)
+    Fkernel = F * K
+    Fi = CUFFT.plan_irfft(Fkernel, size(M,1)) 
+    
+    return FFTPlans_gpu(F, Fi, Fkernel)
+end
 
 """
     blur_filter_fft_gpu(image_dims::Tuple, kernel_size::Int, Alloc_space::ResultsFFT_gpu)
@@ -269,12 +293,11 @@ end
     Supports 1D, 2D, and 3D images.
 
 """
-function blur_filter_fft_gpu(image_dims::Tuple, kernel_size::Int, Alloc_space::ResultsFFT_gpu)
+function blur_filter_fft_gpu(image_dims::Tuple, kernel_size::Int, Alloc_space::ResultsFFT_gpu, FFTPlans::FFTPlans_gpu)
 
-    FM = rfft(Alloc_space.M)
-    FK = rfft(Alloc_space.K)
-    Alloc_space.Fprod .= FM .* FK
-    Alloc_space.M .= irfft(Alloc_space.Fprod, size(Alloc_space.M, 1))   
+    Alloc_space.Fprod .= FFTPlans.F * Alloc_space.M
+    Alloc_space.Fprod .= Alloc_space.Fprod .* FFTPlans.Fkernel
+    Alloc_space.M .= FFTPlans.Fi *  Alloc_space.Fprod
 
     # Crop to get the same convolution output
     pad = div(kernel_size, 2)

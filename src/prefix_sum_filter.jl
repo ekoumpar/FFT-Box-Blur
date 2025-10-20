@@ -117,10 +117,9 @@ function prefix_sum_filter(image_dims::Tuple, kernel_size::Int, S::AbstractArray
         end
 
     else  # 3D 
-        
         rows, cols, depth = image_dims
 
-        for i in 1:rows, j in 1:cols, k in 1:depth
+        for j in 1:cols, k in 1:depth, i in 1:rows
             # Select kernel region
 
             (top, left, front) = (i-pad, j-pad, k-pad)

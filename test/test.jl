@@ -28,7 +28,7 @@ R_fft, plans = fft_conv(image, kernel_size)
 R_ps_gpu = prefix_sum_conv_gpu(image, kernel_size)
 
 # --- 6. FFT Convolution ---
-R_fft_gpu = fft_conv_gpu(image, kernel_size)
+R_fft_gpu, plans_gpu = fft_conv_gpu(image, kernel_size)
 
 
 # --- Validity tests ---
