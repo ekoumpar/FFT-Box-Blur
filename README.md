@@ -6,13 +6,13 @@ This project implements a **box blur filter** using **direct convolution** with 
 
 To efficiently compute a box blur, we use a **prefix sum array** (integral image) to calculate the sum of any kernel region in **constant time**.  
 This method is applicable to images of **any dimension** (1D, 2D, or 3D).
-For a 2D image, the prefix sum array $S$ is computed in $O(N^2)$ as:
+1. The **prefix sum array $S$** is computed in $O(N^2)$ as:
 
 $$
 S(x, y) = I(x, y) + S(x-1, y) + S(x, y-1) - S(x-1, y-1)
 $$
 
-The sum of a rectangular region from $(x_1, y_1)$ to $(x_2, y_2)$ is:
+2. The **sum of a rectangular region** from $(x_1, y_1)$ to $(x_2, y_2)$ is:
 
 $$
 \text{Sum} = S(x_2, y_2) - S(x_1-1, y_2) - S(x_2, y_1-1) + S(x_1-1, y_1-1)
@@ -20,12 +20,9 @@ $$
 
 For each pixel $(i, j)$, the kernel region is defined by:
 
-$$
-(x_1, y_1) = (i - \text{pad}, j - \text{pad}), \quad
-(x_2, y_2) = (i + \text{pad}, j + \text{pad})
-$$
+$(x_1, y_1) = (i - \text{pad}, j - \text{pad})$
 
-where $\text{pad} = \lfloor k/2 \rfloor$.  
+$(x_2, y_2) = (i + \text{pad}, j + \text{pad})$, where $\text{pad} = \lfloor k/2 \rfloor$.  
 This allows computing the sum of the kernel in **$O(1)$ per pixel**, giving a total convolution complexity of **$O(N^2)$**.
 
 
@@ -70,7 +67,7 @@ To run the code in the Julia REPL, execute the following commands:
 ```julia
 include("setup.jl")
 include("load_filters.jl")
-include("test.jl")
+include("test/test.jl")
 ```
 - `setup.jl` — Installs the required library packages (run this once).
 
@@ -81,7 +78,7 @@ include("test.jl")
 For benchmarking, you can also run:
 
 ```julia
-include("benchmark.jl")
+include("test/benchmark.jl")
 ```
 This script records execution times for performance evaluation.
 
@@ -103,17 +100,16 @@ We measured the **initialization time** (prefix sum computation and FFT plan pre
 ## 2D Images
 
 ### Convolution time
-<img width="857" height="470" alt="convolution_time_480x560" src="https://github.com/user-attachments/assets/0c3f367d-b707-4cf3-ad74-27a66c10588c" />
-<img width="857" height="470" alt="convolution_time_1024x1024" src="https://github.com/user-attachments/assets/883d9502-fad2-44f0-917f-b6c3d85557b0" />
+
 
 ### Preparation time
-<img width="857" height="470" alt="prepare_time_2D" src="https://github.com/user-attachments/assets/b1952322-f109-4afb-a855-c6a1f1a9b066" />
+
 
 ## 3D Images
 
 ### Convolution time
-<img width="849" height="470" alt="convolution_time_3D" src="https://github.com/user-attachments/assets/906f3276-56c2-449f-9bfb-924f8f74330c" />
+
 
 ### Preparation time
-<img width="857" height="470" alt="prepare_time_3D" src="https://github.com/user-attachments/assets/e4170d87-95e7-4fbe-a61c-b93ff011597c" />
+
 
