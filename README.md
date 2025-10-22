@@ -100,16 +100,21 @@ We measured the **initialization time** (prefix sum computation and FFT plan pre
 ## 2D Images
 
 ### Convolution time
+<img width="841" height="547" alt="convolution_time_480x560" src="https://github.com/user-attachments/assets/a53e53a0-862a-4b8d-952e-ab6a8e594ea4" />
+<img width="850" height="547" alt="convolution_time_1024x1024" src="https://github.com/user-attachments/assets/e30f6d7f-80ff-49c7-ae29-2823c8d14e22" />
 
 
 ### Preparation time
+<img width="845" height="547" alt="prepare_time2D" src="https://github.com/user-attachments/assets/11492e24-c88c-418e-8266-8c317530d310" />
 
 
 ## 3D Images
 
 ### Convolution time
+<img width="849" height="547" alt="convolution_time_3D" src="https://github.com/user-attachments/assets/3de5ba81-04d4-405b-911e-fc60352c6741" />
 
 
 ### Preparation time
+<img width="857" height="547" alt="prepare_time_3D" src="https://github.com/user-attachments/assets/f920b77b-378b-4ad0-97b2-6e8717b93a52" />
 
 
