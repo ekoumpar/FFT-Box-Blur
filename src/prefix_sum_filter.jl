@@ -96,8 +96,8 @@ function prefix_sum_filter(image_dims::Tuple, kernel_size::Int, S::AbstractArray
         rows, cols = image_dims
 
         for i in 1:rows, j in 1:cols
-            # Select valid kernel region
 
+            # Select valid kernel region
             (i_top , i_left) = (i-pad, j-pad)
 
             i_bottom = min(i + pad, rows)
@@ -120,8 +120,8 @@ function prefix_sum_filter(image_dims::Tuple, kernel_size::Int, S::AbstractArray
         rows, cols, depth = image_dims
 
         for j in 1:cols, k in 1:depth, i in 1:rows
-            # Select kernel region
 
+            # Select valid kernel region
             (top, left, front) = (i-pad, j-pad, k-pad)
 
             back   = min(k + pad, depth)
@@ -186,7 +186,7 @@ function prefix_sum_conv_gpu(image::AbstractArray, kernel_size::Int)
     threads = ntuple(i-> min(sz[i], t[i]), nd)
     blocks = ntuple(i->cld(sz[i], threads[i]), nd)
 
-    R_cpu, S_gpu, R_gpu = prefix_sum_init_gpu(sz)
+    S_gpu, R_gpu = prefix_sum_init_gpu(sz)
     calculate_prefix_sum_gpu(image_gpu, S_gpu)
     @cuda threads=threads blocks=blocks prefix_sum_filter_gpu(sz, kernel_size, S_gpu, R_gpu)
 
@@ -221,7 +221,7 @@ function prefix_sum_conv_gpu_bench(image::AbstractArray, kernel_size::Int)
     threads = ntuple(i-> min(sz[i], t[i]), nd)
     blocks = ntuple(i->cld(sz[i], threads[i]), nd)
 
-    R_cpu, S_gpu, R_gpu = prefix_sum_init_gpu(sz)
+    S_gpu, R_gpu = prefix_sum_init_gpu(sz)
 
     t_init_ps = @belapsed calculate_prefix_sum_gpu($image_gpu, $S_gpu)
 
@@ -247,12 +247,10 @@ function prefix_sum_init_gpu(image_dims::Tuple)
         error("Unsupported image dimension")
     end 
 
-    R = zeros(Float32, image_dims)
-
     S_gpu = CUDA.zeros(Float32, image_dims)
     R_gpu = CUDA.zeros(Float32, image_dims)
 
-    return R, S_gpu, R_gpu
+    return S_gpu, R_gpu
 
 end
 
@@ -285,10 +283,11 @@ function prefix_sum_filter_gpu(image_dims::Tuple, kernel_size::Int,  S_gpu::CuDe
         j = threadIdx().y + (blockIdx().y - 1) * blockDim().y
 
         if (i>=1 && i<=rows) && (j>=1 && j<=cols)
+
             # Select valid kernel region
-            i_top    = max(i - pad, 1)
+            (i_top , i_left) = (i-pad, j-pad)
+
             i_bottom = min(i + pad, rows)
-            i_left   = max(j - pad, 1)
             i_right  = min(j + pad, cols)
 
             # Sum = S(x2,y2) - S(x1-1,y2) - S(x2,y1-1) + S(x1-1,y1-1) 
@@ -310,12 +309,12 @@ function prefix_sum_filter_gpu(image_dims::Tuple, kernel_size::Int,  S_gpu::CuDe
         k = threadIdx().z + (blockIdx().z - 1) * blockDim().z
 
         if (i>=1 && i<=rows) && (j>=1 && j<=cols) && (k>=1 && k<=depth)
-             # Select kernel region
-            front  = max(k - pad, 1)
+
+            # Select valid kernel region
+            (top, left, front) = (i-pad, j-pad, k-pad)
+
             back   = min(k + pad, depth)
-            top    = max(i - pad, 1)
             bottom = min(i + pad, rows)
-            left   = max(j - pad, 1)
             right  = min(j + pad, cols)
             
             # Sum kernel region
